@@ -1,0 +1,11 @@
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+
+java-inference/target/
+training/.ipynb_checkpoints
+java-inference/.idea
+
