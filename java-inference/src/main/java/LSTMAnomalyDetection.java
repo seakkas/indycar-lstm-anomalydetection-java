@@ -2,14 +2,15 @@
 import java.util.Random;
 
 import org.tensorflow.SavedModelBundle;
+import org.tensorflow.Session;
 import org.tensorflow.Tensor;
 
 public class LSTMAnomalyDetection {
 
     String modelsDir;
-    SavedModelBundle speedModel;
-    SavedModelBundle rpmModel;
-    SavedModelBundle throttleModel;
+    Session speedModel;
+    Session rpmModel;
+    Session throttleModel;
 
     double speedAnomalyThreshold;
     double rpmAnomalyThreshold;
@@ -23,9 +24,9 @@ public class LSTMAnomalyDetection {
 
     public LSTMAnomalyDetection(String modelsDir, int historySize){
         this.modelsDir = modelsDir;
-        speedModel = SavedModelBundle.load(this.modelsDir + "/speed/1/", "serve");
-        rpmModel = SavedModelBundle.load(this.modelsDir + "/rpm/1/", "serve");
-        throttleModel = SavedModelBundle.load(this.modelsDir + "/throttle/1/", "serve");
+        speedModel = SavedModelBundle.load(this.modelsDir + "/speed/1/", "serve").session();
+        rpmModel = SavedModelBundle.load(this.modelsDir + "/rpm/1/", "serve").session();
+        throttleModel = SavedModelBundle.load(this.modelsDir + "/throttle/1/", "serve").session();
 
         this.speedAnomalyThreshold = 0.25;
         this.throttleAnomalyThreshold = 0.25;
@@ -49,7 +50,7 @@ public class LSTMAnomalyDetection {
     public double calculateSpeedAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = speedModel.session().runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
+        Tensor predictionTensor = speedModel.runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
@@ -59,7 +60,7 @@ public class LSTMAnomalyDetection {
     public double calculateRPMAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = rpmModel.session().runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
+        Tensor predictionTensor = rpmModel.runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
@@ -69,7 +70,7 @@ public class LSTMAnomalyDetection {
     public double calculateThrottleAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = throttleModel.session().runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
+        Tensor predictionTensor = throttleModel.runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
@@ -99,6 +100,22 @@ public class LSTMAnomalyDetection {
         System.out.println("RPM anomaly score:" + rpmAnomalyScore);
         System.out.println("Throttle anomaly score:" + throttleAnomalyScore);
         //// TODO: 6/17/20 All three models give same output. Check if something wrong.
+
+        benchmark(testData);
+
+    }
+
+    public static void benchmark(float[][][] testData)
+    {
+        int  historySize = 150;
+        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection("/home/sakkas/github/indycar-lstm-anomalydetection-java/models", historySize);
+        long start = System.currentTimeMillis();
+        for (int i = 0; i < 1000; i++) {
+            lstmAnomaly.calculateSpeedAnomalyScore(testData);
+        }
+        long finish = System.currentTimeMillis();
+        long timeElapsed = finish - start;
+        System.out.println("elapsed time: " + timeElapsed);
 
     }
 }
