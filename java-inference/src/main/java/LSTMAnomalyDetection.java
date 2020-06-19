@@ -7,14 +7,10 @@ import org.tensorflow.Tensor;
 
 public class LSTMAnomalyDetection {
 
-    String modelsDir;
-    Session speedModel;
-    Session rpmModel;
-    Session throttleModel;
+    String modelDir;
+    Session session;
 
-    double speedAnomalyThreshold;
-    double rpmAnomalyThreshold;
-    double throttleAnomalyThreshold;
+    double anomalyThreshold;
 
     private int historySize;
     public int getHistorySize() {
@@ -24,18 +20,13 @@ public class LSTMAnomalyDetection {
     private String modelInputName;
     private  String modelOutputName;
 
-    public LSTMAnomalyDetection(String modelsDir, int historySize){
-        this.modelsDir = modelsDir;
-        speedModel = SavedModelBundle.load(this.modelsDir + "/speed/1/", "serve").session();
-        rpmModel = SavedModelBundle.load(this.modelsDir + "/rpm/1/", "serve").session();
-        throttleModel = SavedModelBundle.load(this.modelsDir + "/throttle/1/", "serve").session();
+    public LSTMAnomalyDetection(String modelDir, int historySize, double anomalyThreshold){
+        this.modelDir = modelDir;
+        session = SavedModelBundle.load(this.modelDir , "serve").session();
 
-        this.speedAnomalyThreshold = 0.25;
-        this.throttleAnomalyThreshold = 0.25;
-        this.rpmAnomalyThreshold = 0.25;
+        this.anomalyThreshold = anomalyThreshold;
 
         this.historySize = historySize;
-
         this.modelInputName = "serving_default_lstm_input";
         this.modelOutputName = "StatefulPartitionedCall";
     }
@@ -52,45 +43,27 @@ public class LSTMAnomalyDetection {
 
     }
 
-    public double calculateSpeedAnomalyScore(float[][][] input)
+    public double calculateAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = speedModel.runner()
+        Tensor predictionTensor = session.runner()
                 .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
-        return mae < this.speedAnomalyThreshold ? 0.0 : mae;
-    }
-
-    public double calculateRPMAnomalyScore(float[][][] input)
-    {
-        Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = rpmModel.runner()
-                .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
-        float[][][] prediction = new float[1][getHistorySize()][1];
-        predictionTensor.copyTo(prediction);
-        double mae =  meanAbsoluteError(input, prediction);
-        return mae < this.rpmAnomalyThreshold ? 0.0 : mae;
-    }
-
-    public double calculateThrottleAnomalyScore(float[][][] input)
-    {
-        Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = throttleModel.runner()
-                .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
-        float[][][] prediction = new float[1][getHistorySize()][1];
-        predictionTensor.copyTo(prediction);
-        double mae =  meanAbsoluteError(input, prediction);
-        return mae < this.throttleAnomalyThreshold ? 0.0 : mae;
+        return mae < this.anomalyThreshold ? 0.0 : mae;
     }
 
     // This is for testing
     public static void main(String[] args)  {
 
         int  historySize = 150;
-        String modelsDir = "/home/sakkas/github/indycar-lstm-anomalydetection-java/models";
-        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection(modelsDir, historySize);
+        LSTMAnomalyDetection lstmSpeed = new LSTMAnomalyDetection("/home/sakkas/github/" +
+                "indycar-lstm-anomalydetection-java/models/speed/1/", historySize, 0.25);
+        LSTMAnomalyDetection lstmRpm = new LSTMAnomalyDetection("/home/sakkas/github/" +
+                "indycar-lstm-anomalydetection-java/models/rpm/1/", historySize, 0.25);
+        LSTMAnomalyDetection lstmThrottle = new LSTMAnomalyDetection("/home/sakkas/github/" +
+                "indycar-lstm-anomalydetection-java/models/throttle/1/", historySize, 0.25);
 
         Random rand = new Random();
 
@@ -101,26 +74,28 @@ public class LSTMAnomalyDetection {
             //System.out.println(testData[0][i][0]);
         }
 
-        double speedAnomalyScore = lstmAnomaly.calculateSpeedAnomalyScore(testData);
-        double rpmAnomalyScore = lstmAnomaly.calculateRPMAnomalyScore(testData);
-        double throttleAnomalyScore = lstmAnomaly.calculateThrottleAnomalyScore(testData);
+        double speedAnomalyScore = lstmSpeed.calculateAnomalyScore(testData);
+        double rpmAnomalyScore = lstmRpm.calculateAnomalyScore(testData);
+        double throttleAnomalyScore = lstmThrottle.calculateAnomalyScore(testData);
 
         System.out.println("Speed anomaly score:" + speedAnomalyScore);
         System.out.println("RPM anomaly score:" + rpmAnomalyScore);
         System.out.println("Throttle anomaly score:" + throttleAnomalyScore);
         //// TODO: 6/19/20 Throttle Model's anomaly values are high compared  to others. Check it.
 
-        //benchmark(modelsDir, testData);
+        benchmark(testData);
 
     }
 
-    public static void benchmark(String modelsDir, float[][][] testData)
+    public static void benchmark(float[][][] testData)
     {
         int  historySize = 150;
-        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection(modelsDir, historySize);
+        LSTMAnomalyDetection lstmSpeed = new LSTMAnomalyDetection("/home/sakkas/github/" +
+                "indycar-lstm-anomalydetection-java/models/speed/1/", historySize, 0.25);
+
         long start = System.currentTimeMillis();
         for (int i = 0; i < 1000; i++) {
-            lstmAnomaly.calculateSpeedAnomalyScore(testData);
+            lstmSpeed.calculateAnomalyScore(testData);
         }
         long finish = System.currentTimeMillis();
         long timeElapsed = finish - start;
