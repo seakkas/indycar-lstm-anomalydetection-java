@@ -17,10 +17,12 @@ public class LSTMAnomalyDetection {
     double throttleAnomalyThreshold;
 
     private int historySize;
-
     public int getHistorySize() {
         return historySize;
     }
+
+    private String modelInputName;
+    private  String modelOutputName;
 
     public LSTMAnomalyDetection(String modelsDir, int historySize){
         this.modelsDir = modelsDir;
@@ -33,6 +35,9 @@ public class LSTMAnomalyDetection {
         this.rpmAnomalyThreshold = 0.25;
 
         this.historySize = historySize;
+
+        this.modelInputName = "serving_default_lstm_input";
+        this.modelOutputName = "StatefulPartitionedCall";
     }
 
 
@@ -50,7 +55,8 @@ public class LSTMAnomalyDetection {
     public double calculateSpeedAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = speedModel.runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
+        Tensor predictionTensor = speedModel.runner()
+                .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
@@ -60,7 +66,8 @@ public class LSTMAnomalyDetection {
     public double calculateRPMAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = rpmModel.runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
+        Tensor predictionTensor = rpmModel.runner()
+                .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
@@ -70,7 +77,8 @@ public class LSTMAnomalyDetection {
     public double calculateThrottleAnomalyScore(float[][][] input)
     {
         Tensor inputTensor = Tensor.create(input, Float.class);
-        Tensor predictionTensor = throttleModel.runner().feed("lstm_2_input", inputTensor).fetch("time_distributed_1/Reshape_1").run().get(0);
+        Tensor predictionTensor = throttleModel.runner()
+                .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
         double mae =  meanAbsoluteError(input, prediction);
@@ -81,7 +89,8 @@ public class LSTMAnomalyDetection {
     public static void main(String[] args)  {
 
         int  historySize = 150;
-        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection("/home/sakkas/github/indycar-lstm-anomalydetection-java/models", historySize);
+        String modelsDir = "/home/sakkas/github/indycar-lstm-anomalydetection-java/models";
+        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection(modelsDir, historySize);
 
         Random rand = new Random();
 
@@ -99,16 +108,16 @@ public class LSTMAnomalyDetection {
         System.out.println("Speed anomaly score:" + speedAnomalyScore);
         System.out.println("RPM anomaly score:" + rpmAnomalyScore);
         System.out.println("Throttle anomaly score:" + throttleAnomalyScore);
-        //// TODO: 6/17/20 All three models give same output. Check if something wrong.
+        //// TODO: 6/19/20 Throttle Model's anomaly values are high compared  to others. Check it.
 
-        benchmark(testData);
+        //benchmark(modelsDir, testData);
 
     }
 
-    public static void benchmark(float[][][] testData)
+    public static void benchmark(String modelsDir, float[][][] testData)
     {
         int  historySize = 150;
-        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection("/home/sakkas/github/indycar-lstm-anomalydetection-java/models", historySize);
+        LSTMAnomalyDetection lstmAnomaly = new LSTMAnomalyDetection(modelsDir, historySize);
         long start = System.currentTimeMillis();
         for (int i = 0; i < 1000; i++) {
             lstmAnomaly.calculateSpeedAnomalyScore(testData);
