@@ -10,8 +10,6 @@ public class LSTMAnomalyDetection {
     String modelDir;
     Session session;
 
-    double anomalyThreshold;
-
     private int historySize;
     public int getHistorySize() {
         return historySize;
@@ -20,11 +18,9 @@ public class LSTMAnomalyDetection {
     private String modelInputName;
     private  String modelOutputName;
 
-    public LSTMAnomalyDetection(String modelDir, int historySize, double anomalyThreshold){
+    public LSTMAnomalyDetection(String modelDir, int historySize){
         this.modelDir = modelDir;
         session = SavedModelBundle.load(this.modelDir , "serve").session();
-
-        this.anomalyThreshold = anomalyThreshold;
 
         this.historySize = historySize;
         this.modelInputName = "serving_default_lstm_input";
@@ -50,8 +46,7 @@ public class LSTMAnomalyDetection {
                 .feed(modelInputName, inputTensor).fetch(modelOutputName).run().get(0);
         float[][][] prediction = new float[1][getHistorySize()][1];
         predictionTensor.copyTo(prediction);
-        double mae =  meanAbsoluteError(input, prediction);
-        return mae < this.anomalyThreshold ? 0.0 : mae;
+        return meanAbsoluteError(input, prediction);
     }
 
     // This is for testing
