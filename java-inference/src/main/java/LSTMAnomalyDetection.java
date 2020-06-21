@@ -54,11 +54,11 @@ public class LSTMAnomalyDetection {
 
         int  historySize = 150;
         LSTMAnomalyDetection lstmSpeed = new LSTMAnomalyDetection("/home/sakkas/github/" +
-                "indycar-lstm-anomalydetection-java/models/speed/1/", historySize, 0.25);
+                "indycar-lstm-anomalydetection-java/models/speed/1/", historySize);
         LSTMAnomalyDetection lstmRpm = new LSTMAnomalyDetection("/home/sakkas/github/" +
-                "indycar-lstm-anomalydetection-java/models/rpm/1/", historySize, 0.25);
+                "indycar-lstm-anomalydetection-java/models/rpm/1/", historySize);
         LSTMAnomalyDetection lstmThrottle = new LSTMAnomalyDetection("/home/sakkas/github/" +
-                "indycar-lstm-anomalydetection-java/models/throttle/1/", historySize, 0.25);
+                "indycar-lstm-anomalydetection-java/models/throttle/1/", historySize);
 
         Random rand = new Random();
 
@@ -86,7 +86,7 @@ public class LSTMAnomalyDetection {
     {
         int  historySize = 150;
         LSTMAnomalyDetection lstmSpeed = new LSTMAnomalyDetection("/home/sakkas/github/" +
-                "indycar-lstm-anomalydetection-java/models/speed/1/", historySize, 0.25);
+                "indycar-lstm-anomalydetection-java/models/speed/1/", historySize);
 
         long start = System.currentTimeMillis();
         for (int i = 0; i < 1000; i++) {
